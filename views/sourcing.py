@@ -82,8 +82,8 @@ def _select_oc_product(prod: dict) -> None:
         f"상품명: {prod['name']}\n오너클랜 상품 URL: {prod['product_url']}",
     )
     import streamlit as _st
-    _st.toast(f"'{prod['name'][:20]}' 선택 완료! 후킹 문구 탭에서 계속하세요.", icon="✅")
-    _st.session_state["_nav"] = "상세페이지 후킹 문구"
+    _st.toast(f"'{prod['name'][:20]}' 선택 완료! 대표 이미지를 생성하세요.", icon="✅")
+    _st.session_state["_nav"] = "대표 이미지 만들기"
     _st.rerun()
 
 
