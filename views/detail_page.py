@@ -64,6 +64,11 @@ def render() -> None:
                     st.markdown(f"- {pt.get('icon','')} **{pt.get('headline','')}**: {pt.get('description','')}")
 
         st.divider()
+        include_privacy = st.checkbox(
+            "📋 개인정보 제3자 제공 안내 포함",
+            value=True,
+            help="배송 정보가 위탁 공급사에 제공될 수 있음을 고객에게 고지합니다. (개인정보보호법 제17조 권장)",
+        )
         gen_btn = st.button(
             "🚀 상세페이지 생성 및 미리보기",
             type="primary",
@@ -95,6 +100,7 @@ def render() -> None:
                         cta_text=cta_text,
                         hero_image=hero_img,
                         extra_images=extra_imgs,
+                        include_privacy_notice=include_privacy,
                     )
                     session.set("detail_html", html)
                     session.set("detail_done", True)

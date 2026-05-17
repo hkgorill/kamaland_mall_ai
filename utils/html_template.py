@@ -16,6 +16,7 @@ def build_detail_page_html(
     cta_text: str,
     hero_image: Image.Image | None = None,
     extra_images: list[Image.Image] | None = None,
+    include_privacy_notice: bool = True,
 ) -> str:
     hero_html = ""
     if hero_image:
@@ -27,6 +28,21 @@ def build_detail_page_html(
         for img in extra_images:
             b64 = _image_to_base64(img)
             extra_html += f'<img src="data:image/png;base64,{b64}" style="width:100%;display:block;margin-bottom:4px;" alt="추가이미지">'
+
+    privacy_html = ""
+    if include_privacy_notice:
+        privacy_html = """
+  <div class="privacy-notice">
+    <div class="privacy-title">📋 개인정보 제3자 제공 안내</div>
+    <div class="privacy-body">
+      원활한 배송 처리를 위해 구매자의 배송 정보(성명·주소·연락처)가
+      위탁 공급사에 제공될 수 있습니다.<br>
+      상품 구매 시 본 안내에 동의하시는 것으로 간주됩니다.<br>
+      <span class="privacy-law">
+        [근거: 개인정보 보호법 제17조 / 전자상거래법 제13조]
+      </span>
+    </div>
+  </div>"""
 
     points_html = ""
     for pt in key_points:
@@ -113,6 +129,28 @@ def build_detail_page_html(
     cursor: pointer;
     letter-spacing: 0.02em;
   }}
+  .privacy-notice {{
+    background: #0d0d1a;
+    border-top: 1px solid #1e1e38;
+    padding: 14px 16px 24px;
+    margin-top: 4px;
+  }}
+  .privacy-title {{
+    font-size: 0.72rem;
+    color: #4B5563;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }}
+  .privacy-body {{
+    font-size: 0.68rem;
+    color: #374151;
+    line-height: 1.7;
+  }}
+  .privacy-law {{
+    font-size: 0.63rem;
+    color: #2D3748;
+  }}
 </style>
 </head>
 <body>
@@ -129,5 +167,6 @@ def build_detail_page_html(
   <div class="cta-section">
     <button class="cta-btn">{cta_text}</button>
   </div>
+  {privacy_html}
 </body>
 </html>"""

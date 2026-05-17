@@ -36,6 +36,22 @@ def _parse_keywords(text: str) -> list[dict]:
     return items
 
 
+# ── 체크박스 콜백 ─────────────────────────────────────────────
+
+def _on_keyword_toggle(item: dict, chk_key: str) -> None:
+    """체크박스 클릭 즉시 _selected_keywords 동기화 (렌더 전 실행)."""
+    kw = item["keyword"]
+    is_checked = st.session_state.get(chk_key, False)
+    sel: list = list(st.session_state.get("_selected_keywords", []))  # 복사본
+
+    if is_checked and not any(k["keyword"] == kw for k in sel):
+        sel.append(item)
+    elif not is_checked:
+        sel = [k for k in sel if k["keyword"] != kw]
+
+    st.session_state["_selected_keywords"] = sel
+
+
 # ── 메인 렌더 ─────────────────────────────────────────────────
 
 def render() -> None:
@@ -96,6 +112,10 @@ def render() -> None:
                 try:
                     result = generate_text(prompt, system_prompt=SOURCING_SYSTEM_PROMPT, temperature=0.8)
                     parsed = _parse_keywords(result)
+                    # 이전 체크박스 위젯 상태 초기화 (재추출 시 상태 불일치 방지)
+                    old_count = len(st.session_state.get("_sourcing_parsed", []))
+                    for j in range(old_count):
+                        st.session_state.pop(f"kw_chk_{j}", None)
                     st.session_state["_sourcing_parsed"] = parsed
                     st.session_state["_selected_keywords"] = []
                     st.toast(f"키워드 {len(parsed)}개 추출 완료!", icon="🔍")
@@ -115,17 +135,27 @@ def render() -> None:
         st.caption(f"총 {len(parsed_list)}개 키워드 · 체크박스로 선택 후 왼쪽 '선택 완료' 버튼을 눌러주세요")
 
         for i, item in enumerate(parsed_list):
-            kw   = item["keyword"]
-            sp   = item["selling_point"]
-            tgt  = item["target"]
-            checked = any(k["keyword"] == kw for k in st.session_state["_selected_keywords"])
+            kw  = item["keyword"]
+            sp  = item["selling_point"]
+            tgt = item["target"]
+            chk_key = f"kw_chk_{i}"
+
+            # _selected_keywords 를 단일 진실 소스로 사용
+            is_selected = any(k["keyword"] == kw for k in st.session_state.get("_selected_keywords", []))
 
             col_chk, col_card = st.columns([0.08, 0.92])
             with col_chk:
-                selected_now = st.checkbox("", value=checked, key=f"kw_chk_{i}", label_visibility="collapsed")
+                st.checkbox(
+                    "",
+                    value=is_selected,
+                    key=chk_key,
+                    on_change=_on_keyword_toggle,
+                    args=(item, chk_key),
+                    label_visibility="collapsed",
+                )
 
             with col_card:
-                border_color = "#7C3AED" if selected_now else "#2D2D4E"
+                border_color = "#7C3AED" if is_selected else "#2D2D4E"
                 st.markdown(
                     f"""<div style="background:#1A1A2E;border:1.5px solid {border_color};
                     border-radius:10px;padding:0.9rem 1.1rem;margin-bottom:2px;">
@@ -138,11 +168,3 @@ def render() -> None:
                     </div>""",
                     unsafe_allow_html=True,
                 )
-
-            # 선택 상태 동기화
-            sel = st.session_state["_selected_keywords"]
-            exists = any(k["keyword"] == kw for k in sel)
-            if selected_now and not exists:
-                sel.append(item)
-            elif not selected_now and exists:
-                st.session_state["_selected_keywords"] = [k for k in sel if k["keyword"] != kw]
