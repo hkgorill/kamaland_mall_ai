@@ -124,6 +124,28 @@ def render() -> None:
         except Exception as e:
             st.error(f"이미지 처리 실패: {e}")
 
+    # ── URL 생성 결과를 버튼 바로 아래에 즉시 표시 ────────────
+    url_api_results: list[dict] = st.session_state.get("_api_results") or []
+    url_ok_items = [r for r in url_api_results if r["image"] is not None]
+    if url_ok_items:
+        st.success(f"✅ AI 이미지 {len(url_ok_items)}장 생성 완료")
+        img_cols = st.columns(len(url_ok_items))
+        for col, item in zip(img_cols, url_ok_items):
+            with col:
+                st.markdown(f"**{item['name']}**")
+                st.image(item["image"], use_container_width=True)
+                st.download_button(
+                    label="⬇️ 다운로드",
+                    data=_pil_to_bytes(item["image"]),
+                    file_name=f"product_{item['name']}.png",
+                    mime="image/png",
+                    key=f"dl_url_{item['name']}",
+                    use_container_width=True,
+                )
+        if st.button("➡️ 상세페이지 후킹 문구로 이동", type="secondary", key="url_nav_copy"):
+            st.session_state["_nav"] = "상세페이지 후킹 문구"
+            st.rerun()
+
     st.divider()
 
     # ── STEP 1: 이미지 업로드 ─────────────────────────────────
