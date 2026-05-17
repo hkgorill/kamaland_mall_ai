@@ -16,13 +16,11 @@ IMAGE_GEN_MAX_WORKERS = 3
 APP_TITLE = "KAMALAND_MALL AI"
 APP_ICON = "✨"
 
-# 이미지 생성 컨셉 5가지
+# 이미지 생성 컨셉 3가지 (API 과금 절감용; 나머지 2장은 Gemini 웹/앱에서 직접 생성 후 업로드)
 IMAGE_CONCEPTS = [
     ("미니멀 스튜디오", "clean white minimalist studio background, soft diffused lighting, product photography"),
-    ("고급 호텔", "luxury hotel suite background, warm ambient lighting, premium lifestyle product shot"),
     ("야외 자연광", "outdoor natural light, warm golden bokeh background, lifestyle product photography"),
     ("다크 럭셔리", "dark black background, dramatic spot lighting, luxury high-end product photography"),
-    ("플랫레이", "flat lay composition, pastel props and accessories, top-down product photography"),
 ]
 
 # 소싱 프롬프트

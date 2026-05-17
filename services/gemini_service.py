@@ -45,6 +45,7 @@ def generate_text(
     client = _get_client()
     config = types.GenerateContentConfig(
         temperature=temperature,
+        thinking_config=types.ThinkingConfig(thinking_budget=0),
         system_instruction=system_prompt or None,
     )
     last_error: Exception | None = None
@@ -74,6 +75,7 @@ def generate_json(
     config = types.GenerateContentConfig(
         temperature=temperature,
         response_mime_type="application/json",
+        thinking_config=types.ThinkingConfig(thinking_budget=0),
         system_instruction=system_prompt or None,
     )
     last_error: Exception | None = None
@@ -102,6 +104,7 @@ def generate_streaming(
     client = _get_client()
     config = types.GenerateContentConfig(
         temperature=temperature,
+        thinking_config=types.ThinkingConfig(thinking_budget=0),
         system_instruction=system_prompt or None,
     )
     try:

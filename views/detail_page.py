@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import datetime
 from pathlib import Path
 
@@ -100,10 +99,13 @@ def render() -> None:
                     session.set("detail_html", html)
                     session.set("detail_done", True)
                     _save_html(html)
-                    st.toast("상세페이지 생성 완료! outputs/pages/ 에 저장되었습니다.", icon="📄")
                 except Exception as e:
                     st.error(f"상세페이지 생성 실패: {e}")
                     session.set("detail_done", False)
+
+            if session.get("detail_done"):
+                st.toast("상세페이지 생성 완료! outputs/pages/ 에 저장되었습니다.", icon="📄")
+                st.rerun()
 
         html_content: str = session.get("detail_html") or ""
         if html_content:
@@ -126,30 +128,30 @@ def render() -> None:
 # ── 미리보기 렌더러 ────────────────────────────────────────────
 
 def _render_preview(html_content: str) -> None:
-    """base64 인코딩으로 iframe 안에 상세페이지 렌더링."""
-    b64 = base64.b64encode(html_content.encode("utf-8")).decode("ascii")
-    iframe_html = f"""
-    <div style="display:flex;justify-content:center;">
-      <div style="
-        width:430px;
-        border:2px solid #2D2D4E;
-        border-radius:24px;
-        overflow:hidden;
-        box-shadow:0 0 50px rgba(124,58,237,0.25);
-        background:#000;
-      ">
-        <!-- 폰 상단 노치 시뮬레이션 -->
-        <div style="background:#000;height:28px;display:flex;align-items:center;justify-content:center;">
-          <div style="width:80px;height:6px;background:#1a1a1a;border-radius:3px;"></div>
-        </div>
-        <iframe
-          src="data:text/html;charset=utf-8;base64,{b64}"
-          style="width:430px;height:680px;border:none;display:block;"
-          scrolling="yes">
-        </iframe>
-      </div>
-    </div>"""
-    components.html(iframe_html, height=740, scrolling=False)
+    """CSS 주입 방식으로 phone frame 시뮬레이션 (중첩 iframe 없이)."""
+    phone_css = """<style id="_pf">
+html { background:#0E0E1A; min-height:100%; }
+body {
+  max-width:430px !important;
+  width:430px !important;
+  margin:20px auto !important;
+  border:2px solid #2D2D4E !important;
+  border-radius:0 0 16px 16px !important;
+  box-shadow:0 0 50px rgba(124,58,237,0.25) !important;
+  overflow:hidden !important;
+  padding-top:0 !important;
+}
+</style>"""
+    notch = (
+        '<div style="background:#000;width:430px;margin:20px auto 0;'
+        'border:2px solid #2D2D4E;border-bottom:none;border-radius:16px 16px 0 0;'
+        'height:28px;display:flex;align-items:center;justify-content:center;">'
+        '<div style="width:80px;height:6px;background:#1a1a1a;border-radius:3px;"></div>'
+        '</div>'
+    )
+    modified = html_content.replace("</head>", phone_css + "</head>", 1)
+    modified = modified.replace("<body>", "<body>" + notch, 1)
+    components.html(modified, height=780, scrolling=True)
 
 
 def _render_download_section(html_content: str) -> None:

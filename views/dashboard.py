@@ -110,7 +110,7 @@ def render() -> None:
         if st.button("🔄 세션 초기화", type="secondary", use_container_width=True):
             session.reset_all()
             # sourcing 파서 임시 상태도 초기화
-            for k in ["_sourcing_parsed", "_selected_keywords", "_bg_removed_image"]:
+            for k in ["_sourcing_parsed", "_selected_keywords", "_bg_removed_image", "_api_results"]:
                 st.session_state.pop(k, None)
             st.rerun()
 

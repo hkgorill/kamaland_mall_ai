@@ -6,6 +6,40 @@ from PIL import Image
 import utils.session as session
 from config import IMAGE_CONCEPTS
 
+# Gemini 웹/앱에서 사용할 복사용 프롬프트 5가지
+_MANUAL_PROMPTS = [
+    (
+        "☕ 카페 라이프스타일",
+        "이 상품 이미지를 사용해서 배경만 교체한 전문 상품 사진을 만들어주세요.\n"
+        "배경: 아늑한 카페 인테리어, 원목 테이블, 커피잔과 노트 소품, 따뜻한 조명과 보케 효과\n"
+        "상품의 형태·색상·디테일은 정확히 유지해주세요. 고해상도 상업용 제품 사진 스타일.",
+    ),
+    (
+        "🏠 모던 홈 인테리어",
+        "이 상품 이미지를 사용해서 배경만 교체한 전문 상품 사진을 만들어주세요.\n"
+        "배경: 모던 미니멀 인테리어, 밝은 화이트 벽, 원목 선반·소품, 부드러운 자연광 채광\n"
+        "상품의 형태·색상·디테일은 정확히 유지해주세요. 라이프스타일 잡지 화보 스타일.",
+    ),
+    (
+        "📸 SNS 감성 플랫레이",
+        "이 상품 이미지를 사용해서 SNS 감성 플랫레이 스타일로 편집해주세요.\n"
+        "구도: 탑뷰(위에서 아래로), 파스텔 톤 배경, 꽃잎·리본·계절 소품 배치\n"
+        "상품의 형태·색상·디테일은 정확히 유지해주세요. 인스타그램 제품 사진 스타일.",
+    ),
+    (
+        "💜 프리미엄 그라데이션",
+        "이 상품 이미지를 사용해서 배경만 교체한 고급 제품 사진을 만들어주세요.\n"
+        "배경: 딥 퍼플-블루 또는 골드-베이지 그라데이션, 부드러운 그림자, 하이라이트 반사 효과\n"
+        "상품의 형태·색상·디테일은 정확히 유지해주세요. 럭셔리 브랜드 광고 스타일.",
+    ),
+    (
+        "🌿 계절 감성 아웃도어",
+        "이 상품 이미지를 사용해서 배경만 교체한 아웃도어 라이프스타일 사진을 만들어주세요.\n"
+        "배경: 봄 정원 또는 가을 낙엽 환경, 초록 식물·꽃, 따뜻한 골든아워 햇빛\n"
+        "상품의 형태·색상·디테일은 정확히 유지해주세요. 자연 감성 라이프스타일 잡지 스타일.",
+    ),
+]
+
 
 def _pil_to_bytes(img: Image.Image, fmt: str = "PNG") -> bytes:
     buf = io.BytesIO()
@@ -15,7 +49,7 @@ def _pil_to_bytes(img: Image.Image, fmt: str = "PNG") -> bytes:
 
 def render() -> None:
     st.markdown("## 🖼️ 대표 이미지 만들기")
-    st.caption("원본 상품 사진 업로드 → 배경 제거 확인 → 5가지 컨셉 마케팅 이미지 생성")
+    st.caption("원본 상품 사진 업로드 → 배경 제거 확인 → AI 자동 생성(3장, 과금) + 직접 업로드(최대 5장, 무료)")
     st.divider()
 
     # ── STEP 1: 이미지 업로드 ─────────────────────────────────
@@ -33,7 +67,8 @@ def render() -> None:
             if raw != session.get("uploaded_image_bytes"):
                 session.set("uploaded_image_bytes", raw)
                 session.set("uploaded_image_name", uploaded.name)
-                session.set("_bg_removed_image", None)  # 새 이미지면 미리보기 초기화
+                session.set("_bg_removed_image", None)
+                st.session_state.pop("_api_results", None)  # 새 이미지면 API 결과 초기화
                 session.set("generated_images", [])
                 session.set("images_done", False)
 
@@ -58,7 +93,6 @@ def render() -> None:
                         st.error(f"배경 제거 실패: {e}")
 
             if bg_removed is not None:
-                # 체크무늬 배경 위에 배경 제거 결과 표시
                 checker_bg = _make_checker_bg(bg_removed.size)
                 checker_bg.paste(bg_removed, mask=bg_removed.split()[3] if bg_removed.mode == "RGBA" else None)
                 st.image(checker_bg, caption="배경 제거 결과", use_container_width=True)
@@ -70,12 +104,12 @@ def render() -> None:
 
     st.divider()
 
-    # ── STEP 2: 이미지 생성 ───────────────────────────────────
-    st.markdown("### Step 2 · 5가지 컨셉 이미지 생성")
+    # ── STEP 2: API 자동 생성 (3컨셉) ─────────────────────────
+    st.markdown("### Step 2 · AI 자동 생성 — 3가지 컨셉 (API 과금)")
 
     has_image = session.get("uploaded_image_bytes") is not None
     run = st.button(
-        "✨ 이미지 5장 생성하기",
+        "✨ 이미지 3장 자동 생성하기",
         type="primary",
         disabled=not has_image,
         use_container_width=False,
@@ -99,47 +133,114 @@ def render() -> None:
 
         try:
             results = generate_product_images(raw, on_progress=_on_progress)
-            session.set("generated_images", results)
+            st.session_state["_api_results"] = results  # 수동 업로드와 합산용 백업
             ok = sum(1 for r in results if r["image"] is not None)
-            session.set("images_done", ok > 0)
             progress_bar.progress(100)
             status_text.markdown(f"**{ok}장 생성 완료** ✅")
-            st.toast(f"이미지 {ok}장 생성 완료!", icon="🖼️")
+            st.toast(f"AI 이미지 {ok}장 생성 완료!", icon="🖼️")
             st.rerun()
         except Exception as e:
             st.error(f"이미지 생성 실패: {e}")
             progress_bar.empty()
             status_text.empty()
 
-    # ── 갤러리 ────────────────────────────────────────────────
-    generated: list[dict] = session.get("generated_images") or []
-    if generated:
-        st.markdown("### 🎨 생성된 이미지 갤러리")
-        ok_items = [item for item in generated if item["image"] is not None]
-        fail_items = [item for item in generated if item["image"] is None]
+    st.divider()
 
-        # 2열 그리드 레이아웃
-        cols = st.columns(2)
-        for idx, item in enumerate(ok_items):
-            with cols[idx % 2]:
-                st.markdown(f"**{item['name']}**")
-                st.image(item["image"], use_container_width=True)
-                st.download_button(
-                    label="⬇️ 다운로드",
-                    data=_pil_to_bytes(item["image"]),
-                    file_name=f"product_{item['name']}.png",
-                    mime="image/png",
-                    key=f"dl_{item['name']}",
-                    use_container_width=True,
-                )
-                st.markdown("")
+    # ── STEP 3: Gemini 웹/앱 직접 생성 후 업로드 ─────────────
+    st.markdown("### Step 3 · Gemini 웹/앱에서 직접 생성 후 업로드 (무료)")
+    st.caption(
+        "gemini.google.com 또는 Gemini 앱에서 상품 이미지를 첨부한 뒤 아래 프롬프트를 사용하세요. "
+        "Basic 무료 20회/일 · AI Plus 50회/일 · Pro 100회/일"
+    )
+
+    with st.expander("💡 복사해서 쓰는 Gemini 이미지 프롬프트 5가지", expanded=True):
+        st.markdown(
+            """<div style="background:#1A1A2E;border:1px solid #7C3AED;border-radius:8px;
+            padding:0.7rem 1rem;margin-bottom:1rem;font-size:0.82rem;color:#94A3B8;">
+            📌 <strong style="color:#A78BFA;">사용법:</strong>
+            gemini.google.com 에서 상품 이미지를 첨부(📎)한 후 아래 프롬프트를 복사해 붙여넣고 전송하세요.</div>""",
+            unsafe_allow_html=True,
+        )
+        for label, prompt_text in _MANUAL_PROMPTS:
+            st.markdown(f"**{label}**")
+            st.code(prompt_text, language=None)
+            st.markdown("")
+
+    manual_files = st.file_uploader(
+        "Gemini에서 생성한 이미지 업로드 (최대 5장, JPG/PNG)",
+        type=["jpg", "jpeg", "png"],
+        accept_multiple_files=True,
+        key="manual_uploader",
+    )
+
+    # 수동 업로드 이미지 처리
+    manual_items: list[dict] = []
+    if manual_files:
+        for i, f in enumerate(manual_files[:5]):
+            try:
+                img = Image.open(io.BytesIO(f.read()))
+                manual_items.append({"name": f"직접업로드_{i + 1}", "image": img, "error": ""})
+            except Exception:
+                pass
+
+    # API 결과 + 수동 업로드 합산 → generated_images 갱신
+    api_items: list[dict] = st.session_state.get("_api_results") or []
+    combined = api_items + manual_items
+    session.set("generated_images", combined)
+    if combined:
+        session.set("images_done", any(item["image"] is not None for item in combined))
+    else:
+        session.set("images_done", False)
+
+    st.divider()
+
+    # ── 통합 갤러리 ────────────────────────────────────────────
+    ok_api  = [it for it in api_items   if it["image"] is not None]
+    ok_man  = [it for it in manual_items if it["image"] is not None]
+    fail_items = [it for it in combined  if it["image"] is None]
+    total_ok = len(ok_api) + len(ok_man)
+
+    if total_ok > 0:
+        st.markdown(f"### 🎨 이미지 갤러리 (총 {total_ok}장)")
+
+        if ok_api:
+            st.caption("🤖 AI 자동 생성")
+            cols = st.columns(min(len(ok_api), 3))
+            for idx, item in enumerate(ok_api):
+                with cols[idx % len(cols)]:
+                    st.markdown(f"**{item['name']}**")
+                    st.image(item["image"], use_container_width=True)
+                    st.download_button(
+                        label="⬇️ 다운로드",
+                        data=_pil_to_bytes(item["image"]),
+                        file_name=f"product_{item['name']}.png",
+                        mime="image/png",
+                        key=f"dl_api_{item['name']}",
+                        use_container_width=True,
+                    )
+                    st.markdown("")
+
+        if ok_man:
+            st.caption("📤 직접 업로드")
+            cols = st.columns(min(len(ok_man), 3))
+            for idx, item in enumerate(ok_man):
+                with cols[idx % len(cols)]:
+                    st.markdown(f"**{item['name']}**")
+                    st.image(item["image"], use_container_width=True)
+                    st.markdown("")
 
         if fail_items:
             with st.expander(f"⚠️ 생성 실패 {len(fail_items)}건"):
                 for item in fail_items:
                     st.warning(f"**{item['name']}**: {item.get('error', '알 수 없는 오류')}")
 
-        st.success(f"총 {len(ok_items)}장 생성 완료 · outputs/images/ 폴더에도 저장되었습니다.")
+        _parts = []
+        if ok_api:
+            _parts.append(f"AI {len(ok_api)}장")
+        if ok_man:
+            _parts.append(f"직접업로드 {len(ok_man)}장")
+        _detail = f"  ({' + '.join(_parts)})" if _parts else ""
+        st.success(f"총 {total_ok}장 준비 완료{_detail}")
 
         if st.button("➡️ 상세페이지 후킹 문구로 이동", type="secondary"):
             st.session_state["_nav"] = "상세페이지 후킹 문구"
@@ -147,7 +248,7 @@ def render() -> None:
 
 
 def _make_checker_bg(size: tuple[int, int], block: int = 24) -> Image.Image:
-    """투명도 확인용 체크무늬 배경 생성 (ImageDraw 사용으로 빠름)."""
+    """투명도 확인용 체크무늬 배경 생성."""
     from PIL import ImageDraw
     w, h = size
     bg   = Image.new("RGB", (w, h), (180, 180, 180))
