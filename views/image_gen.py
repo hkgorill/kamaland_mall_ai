@@ -96,10 +96,10 @@ def render() -> None:
             with st.spinner("이미지를 다운로드하는 중..."):
                 raw = _fetch_image_bytes_from_url(img_url)
 
-            # 세션에 원본 이미지 저장 (Step 1과 공유)
             session.set("uploaded_image_bytes", raw)
             session.set("uploaded_image_name", "url_image.jpg")
             session.set("_bg_removed_image", None)
+            session.set("url_gen_display", [])   # 이전 결과 초기화
             st.session_state.pop("_api_results", None)
             session.set("generated_images", [])
             session.set("images_done", False)
@@ -116,7 +116,15 @@ def render() -> None:
 
             results = generate_product_images(raw, on_progress=_on_progress)
             st.session_state["_api_results"] = results
-            ok = sum(1 for r in results if r["image"] is not None)
+
+            # PIL Image → bytes로 변환하여 세션 저장 (rerun 후 안정적 복원)
+            url_display: list[dict] = []
+            for r in results:
+                img_bytes = _pil_to_bytes(r["image"]) if r["image"] is not None else None
+                url_display.append({"name": r["name"], "bytes": img_bytes, "error": r["error"]})
+            session.set("url_gen_display", url_display)
+
+            ok = sum(1 for r in url_display if r["bytes"] is not None)
             progress_bar.progress(100)
             status_text.markdown(f"**{ok}장 생성 완료** ✅")
             st.toast(f"AI 이미지 {ok}장 생성 완료!", icon="🖼️")
@@ -125,18 +133,18 @@ def render() -> None:
             st.error(f"이미지 처리 실패: {e}")
 
     # ── URL 생성 결과를 버튼 바로 아래에 즉시 표시 ────────────
-    url_api_results: list[dict] = st.session_state.get("_api_results") or []
-    url_ok_items = [r for r in url_api_results if r["image"] is not None]
+    url_display_items: list[dict] = session.get("url_gen_display") or []
+    url_ok_items = [r for r in url_display_items if r.get("bytes") is not None]
     if url_ok_items:
         st.success(f"✅ AI 이미지 {len(url_ok_items)}장 생성 완료")
         img_cols = st.columns(len(url_ok_items))
         for col, item in zip(img_cols, url_ok_items):
             with col:
                 st.markdown(f"**{item['name']}**")
-                st.image(item["image"], use_container_width=True)
+                st.image(item["bytes"], use_container_width=True)
                 st.download_button(
                     label="⬇️ 다운로드",
-                    data=_pil_to_bytes(item["image"]),
+                    data=item["bytes"],
                     file_name=f"product_{item['name']}.png",
                     mime="image/png",
                     key=f"dl_url_{item['name']}",

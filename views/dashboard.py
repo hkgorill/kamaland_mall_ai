@@ -111,7 +111,7 @@ def render() -> None:
             session.reset_all()
             # sourcing 파서 임시 상태도 초기화
             oc_keys = [k for k in st.session_state if k.startswith("oc_")]
-            for k in ["_sourcing_parsed", "_selected_keywords", "_bg_removed_image", "_api_results"] + oc_keys:
+            for k in ["_sourcing_parsed", "_selected_keywords", "_bg_removed_image", "_api_results", "url_gen_display"] + oc_keys:
                 st.session_state.pop(k, None)
             st.rerun()
 
