@@ -17,6 +17,7 @@ def build_detail_page_html(
     hero_image: Image.Image | None = None,
     extra_images: list[Image.Image] | None = None,
     include_privacy_notice: bool = True,
+    oc_detail_image_urls: list[str] | None = None,
 ) -> str:
     hero_html = ""
     if hero_image:
@@ -28,6 +29,17 @@ def build_detail_page_html(
         for img in extra_images:
             b64 = _image_to_base64(img)
             extra_html += f'<img src="data:image/png;base64,{b64}" style="width:100%;display:block;margin-bottom:4px;" alt="추가이미지">'
+
+    oc_detail_html = ""
+    if oc_detail_image_urls:
+        imgs_html = "\n    ".join(
+            f'<img src="{url}" style="width:100%;display:block;margin-bottom:2px;" alt="상세이미지" onerror="this.style.display=\'none\'">'
+            for url in oc_detail_image_urls
+        )
+        oc_detail_html = f"""
+  <div class="oc-detail-label">📦 상품 상세 정보</div>
+  <div class="oc-detail">{imgs_html}
+  </div>"""
 
     privacy_html = ""
     if include_privacy_notice:
@@ -129,6 +141,17 @@ def build_detail_page_html(
     cursor: pointer;
     letter-spacing: 0.02em;
   }}
+  .oc-detail-label {{
+    text-align: center;
+    font-size: 0.72rem;
+    color: #4B5563;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 14px 16px 10px;
+    border-top: 1px solid #1e1e38;
+    background: #0d0d1a;
+  }}
+  .oc-detail {{ background: #000; }}
   .privacy-notice {{
     background: #0d0d1a;
     border-top: 1px solid #1e1e38;
@@ -167,6 +190,7 @@ def build_detail_page_html(
   <div class="cta-section">
     <button class="cta-btn">{cta_text}</button>
   </div>
+  {oc_detail_html}
   {privacy_html}
 </body>
 </html>"""

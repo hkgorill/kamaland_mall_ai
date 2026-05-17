@@ -47,13 +47,87 @@ def _pil_to_bytes(img: Image.Image, fmt: str = "PNG") -> bytes:
     return buf.getvalue()
 
 
+def _fetch_image_bytes_from_url(url: str) -> bytes:
+    """URL에서 이미지 다운로드 → bytes 반환. 실패 시 예외 발생."""
+    import requests
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer": "https://www.ownerclan.com/",
+    }
+    resp = requests.get(url, headers=headers, timeout=15)
+    resp.raise_for_status()
+    ct = resp.headers.get("Content-Type", "")
+    if "image" not in ct and not url.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+        raise ValueError(f"이미지 URL이 아닙니다 (Content-Type: {ct})")
+    return resp.content
+
+
 def render() -> None:
     st.markdown("## 🖼️ 대표 이미지 만들기")
     st.caption("원본 상품 사진 업로드 → 배경 제거 확인 → AI 자동 생성(3장, 과금) + 직접 업로드(최대 5장, 무료)")
     st.divider()
 
+    # ── URL 자동 생성 (소싱 연동 또는 직접 URL 입력) ───────────
+    oc_product: dict = session.get("oc_selected_product") or {}
+    default_url = oc_product.get("image_url", "")
+
+    st.markdown("### 🔗 URL로 이미지 3장 자동 생성 (오너클랜 연동)")
+    st.caption("오너클랜 대표이미지 URL 또는 상품 이미지 URL을 입력하면 배경 교체 AI 이미지 3장을 자동 생성합니다.")
+
+    url_col, btn_col = st.columns([3, 1])
+    with url_col:
+        img_url = st.text_input(
+            "이미지 URL",
+            value=default_url,
+            placeholder="https://cdn.ownerclan.com/... 또는 다른 상품 이미지 URL",
+            label_visibility="collapsed",
+        )
+    with btn_col:
+        url_gen_btn = st.button(
+            "✨ 자동 생성",
+            type="primary",
+            disabled=not bool(img_url),
+            use_container_width=True,
+        )
+
+    if url_gen_btn and img_url:
+        from services.image_service import generate_product_images
+        try:
+            with st.spinner("이미지를 다운로드하는 중..."):
+                raw = _fetch_image_bytes_from_url(img_url)
+
+            # 세션에 원본 이미지 저장 (Step 1과 공유)
+            session.set("uploaded_image_bytes", raw)
+            session.set("uploaded_image_name", "url_image.jpg")
+            session.set("_bg_removed_image", None)
+            st.session_state.pop("_api_results", None)
+            session.set("generated_images", [])
+            session.set("images_done", False)
+
+            prog_col, status_col = st.columns([2, 1])
+            with prog_col:
+                progress_bar = st.progress(0)
+            with status_col:
+                status_text = st.empty()
+
+            def _on_progress(done: int, total: int) -> None:
+                progress_bar.progress(int(done / total * 100))
+                status_text.markdown(f"**{done} / {total}** 완료")
+
+            results = generate_product_images(raw, on_progress=_on_progress)
+            st.session_state["_api_results"] = results
+            ok = sum(1 for r in results if r["image"] is not None)
+            progress_bar.progress(100)
+            status_text.markdown(f"**{ok}장 생성 완료** ✅")
+            st.toast(f"AI 이미지 {ok}장 생성 완료!", icon="🖼️")
+            st.rerun()
+        except Exception as e:
+            st.error(f"이미지 처리 실패: {e}")
+
+    st.divider()
+
     # ── STEP 1: 이미지 업로드 ─────────────────────────────────
-    st.markdown("### Step 1 · 원본 이미지 업로드")
+    st.markdown("### Step 1 · 원본 이미지 업로드 (직접 촬영 이미지)")
     st.markdown(
         """<div style="background:#0d1117;border:1px solid #2D2D4E;border-radius:8px;
         padding:0.65rem 1rem;margin-bottom:0.8rem;font-size:0.79rem;color:#64748B;">

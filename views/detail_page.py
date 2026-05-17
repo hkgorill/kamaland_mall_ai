@@ -64,6 +64,32 @@ def render() -> None:
                     st.markdown(f"- {pt.get('icon','')} **{pt.get('headline','')}**: {pt.get('description','')}")
 
         st.divider()
+
+        # 오너클랜 상세 HTML 입력
+        with st.expander("📦 오너클랜 상세 이미지 추가 (선택)", expanded=False):
+            st.caption("오너클랜 상품 상세페이지 HTML 코드를 붙여넣으면 img 태그 이미지가 상세페이지 하단에 자동 삽입됩니다.")
+            oc_html_raw = st.text_area(
+                "상세 HTML 코드",
+                key="oc_detail_html_input",
+                height=130,
+                placeholder='<p align="center"><img src="https://..."><br><img src="https://..."></p>',
+                label_visibility="collapsed",
+            )
+            oc_detail_urls: list[str] = []
+            if oc_html_raw:
+                import re as _re
+                oc_detail_urls = _re.findall(
+                    r'<img[^>]+src=["\']([^"\']+)["\']',
+                    oc_html_raw, _re.IGNORECASE,
+                )
+                if oc_detail_urls:
+                    st.caption(f"✅ 이미지 {len(oc_detail_urls)}개 감지됨 — 상세페이지 하단에 포함됩니다.")
+                    with st.expander(f"감지된 이미지 URL {len(oc_detail_urls)}개 확인"):
+                        for u in oc_detail_urls:
+                            st.markdown(f"- `{u[:60]}...`" if len(u) > 60 else f"- `{u}`")
+                else:
+                    st.warning("img 태그에서 URL을 찾을 수 없습니다. HTML을 확인해주세요.")
+
         include_privacy = st.checkbox(
             "📋 개인정보 제3자 제공 안내 포함",
             value=True,
@@ -101,6 +127,7 @@ def render() -> None:
                         hero_image=hero_img,
                         extra_images=extra_imgs,
                         include_privacy_notice=include_privacy,
+                        oc_detail_image_urls=oc_detail_urls if oc_detail_urls else None,
                     )
                     session.set("detail_html", html)
                     session.set("detail_done", True)
