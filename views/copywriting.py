@@ -51,9 +51,20 @@ def render() -> None:
             product_info = entered
 
     with tab_url:
+        st.markdown(
+            """<div style="background:#0d1117;border:1px solid #2D2D4E;border-radius:8px;
+            padding:0.7rem 1rem;margin-bottom:0.8rem;font-size:0.8rem;color:#64748B;">
+            ℹ️ <strong style="color:#A78BFA;">참고 정보 수집 용도</strong> —
+            가져온 상품 정보는 AI가 <u>완전히 새로운 문구로 재창작</u>하는 데만 사용됩니다.
+            원본 텍스트를 그대로 사용하지 않습니다.<br>
+            <span style="color:#4B5563;">· 국내 B2C(네이버·쿠팡) 상품의 텍스트 저작권 우회 ✅
+            &nbsp;· 해외 소싱(AliExpress·Taobao) 상품 정보 한국어 재창작 ✅</span>
+            </div>""",
+            unsafe_allow_html=True,
+        )
         url_val = st.text_input(
             "상품 URL 입력",
-            placeholder="https://smartstore.naver.com/... 또는 https://www.coupang.com/...",
+            placeholder="AliExpress · Taobao · 스마트스토어 · 쿠팡 URL 모두 지원",
         )
         fetch_btn = st.button("🔗 URL에서 정보 가져오기", use_container_width=False)
         if fetch_btn:
@@ -67,7 +78,7 @@ def render() -> None:
                 else:
                     formatted = format_for_copywriting(scraped)
                     session.set("product_info", formatted)
-                    st.success("정보를 가져왔습니다. '직접 입력' 탭에서 확인·수정하세요.")
+                    st.success("정보를 가져왔습니다. AI가 완전히 새로운 카피로 재창작합니다.")
                     st.rerun()
             else:
                 st.warning("URL을 입력해주세요.")

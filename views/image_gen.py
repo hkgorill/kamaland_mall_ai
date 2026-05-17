@@ -54,6 +54,18 @@ def render() -> None:
 
     # ── STEP 1: 이미지 업로드 ─────────────────────────────────
     st.markdown("### Step 1 · 원본 이미지 업로드")
+    st.markdown(
+        """<div style="background:#0d1117;border:1px solid #2D2D4E;border-radius:8px;
+        padding:0.65rem 1rem;margin-bottom:0.8rem;font-size:0.79rem;color:#64748B;">
+        📸 <strong style="color:#A78BFA;">저작권 안전 소싱 가이드</strong><br>
+        <span style="color:#4B5563;">
+        ✅ <strong>권장:</strong> 샘플 1개 직접 구매 후 스마트폰 촬영 → AI 배경 교체 (저작권 100% 본인 소유)<br>
+        ✅ <strong>권장:</strong> 도매꾹·오너클랜 등 B2B 플랫폼 이미지 (판매자가 사용 허가 배포)<br>
+        ✅ <strong>권장:</strong> AliExpress·Taobao 소싱 이미지 (해외 플랫폼, 국내 신고 리스크 낮음)<br>
+        ⛔ <strong>비권장:</strong> 국내 B2C 타 판매자 이미지 무단 사용 (저작권·2차적저작물 침해 위험)
+        </span></div>""",
+        unsafe_allow_html=True,
+    )
     upload_col, preview_col = st.columns([1, 1])
 
     with upload_col:

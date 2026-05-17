@@ -34,6 +34,10 @@ def scrape_product_info(url: str) -> dict:
             parsed = _parse_naver(soup)
         elif "coupang.com" in url:
             parsed = _parse_coupang(soup)
+        elif "aliexpress.com" in url:
+            parsed = _parse_aliexpress(soup)
+        elif "taobao.com" in url or "tmall.com" in url:
+            parsed = _parse_taobao(soup)
         else:
             parsed = _parse_generic(soup)
 
@@ -92,6 +96,44 @@ def _parse_coupang(soup: BeautifulSoup) -> dict:
         h2 = soup.find("h2", class_=re.compile(r"product.*name|name.*product", re.I))
         if h2:
             title = h2.get_text(strip=True)
+
+    features = _extract_list_items(soup, max_items=8)
+    return {"title": _clean(title), "description": _clean(desc), "features": features}
+
+
+def _parse_aliexpress(soup: BeautifulSoup) -> dict:
+    """AliExpress 전용 파서."""
+    title = _og_content(soup, "og:title") or _tag_text(soup, "title") or ""
+    desc  = _og_content(soup, "og:description") or ""
+
+    # AliExpress 상품 제목 정제 ("|" 이후 사이트명 제거)
+    if "|" in title:
+        title = title.split("|")[0].strip()
+
+    # 상품 스펙: data-sku-prop, product-property 등
+    features: list[str] = []
+    for tag in soup.find_all(["li", "div", "span"], class_=re.compile(r"property|spec|detail|feature", re.I)):
+        text = tag.get_text(strip=True)
+        if 5 < len(text) < 120 and not _is_boilerplate(text):
+            features.append(_clean(text))
+            if len(features) >= 8:
+                break
+
+    if not features:
+        features = _extract_list_items(soup, max_items=8)
+
+    return {"title": _clean(title), "description": _clean(desc), "features": features}
+
+
+def _parse_taobao(soup: BeautifulSoup) -> dict:
+    """타오바오/티몰 전용 파서 (기본 og 태그 기반, 로그인 불요 페이지 한정)."""
+    title = _og_content(soup, "og:title") or _tag_text(soup, "title") or ""
+    desc  = _og_content(soup, "og:description") or ""
+
+    # 타오바오 제목 정제 ("- 타오바오" 등 제거)
+    for suffix in ["-淘宝网", "- 淘宝", "- Taobao", "- 天猫"]:
+        if suffix in title:
+            title = title.split(suffix)[0].strip()
 
     features = _extract_list_items(soup, max_items=8)
     return {"title": _clean(title), "description": _clean(desc), "features": features}
