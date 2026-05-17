@@ -52,6 +52,41 @@ def _on_keyword_toggle(item: dict, chk_key: str) -> None:
     st.session_state["_selected_keywords"] = sel
 
 
+# ── 오너클랜 상품 카드 렌더 ───────────────────────────────────
+
+def _render_oc_products(products: list[dict], keyword_idx: int) -> None:
+    cols = st.columns(min(len(products), 3))
+    for j, prod in enumerate(products):
+        with cols[j % 3]:
+            if prod.get("image_url"):
+                st.image(prod["image_url"], use_container_width=True)
+            name = prod["name"]
+            display_name = (name[:28] + "…") if len(name) > 28 else name
+            st.markdown(
+                f"""<div style="font-size:0.78rem;font-weight:600;color:#E8E8F0;
+                margin:4px 0 6px;line-height:1.3;">{display_name}</div>""",
+                unsafe_allow_html=True,
+            )
+            st.link_button("🔗 오너클랜 보기", prod["product_url"], use_container_width=True)
+            if st.button("✅ 이 상품 선택", key=f"oc_sel_{keyword_idx}_{j}", use_container_width=True):
+                _select_oc_product(prod)
+
+
+def _select_oc_product(prod: dict) -> None:
+    import utils.session as _sess
+    _sess.set("oc_selected_product", prod)
+    _sess.set("sourcing_done", True)
+    # 카피라이팅 입력에 상품명 + URL 자동 채움
+    _sess.set(
+        "product_info",
+        f"상품명: {prod['name']}\n오너클랜 상품 URL: {prod['product_url']}",
+    )
+    import streamlit as _st
+    _st.toast(f"'{prod['name'][:20]}' 선택 완료! 후킹 문구 탭에서 계속하세요.", icon="✅")
+    _st.session_state["_nav"] = "상세페이지 후킹 문구"
+    _st.rerun()
+
+
 # ── 메인 렌더 ─────────────────────────────────────────────────
 
 def render() -> None:
@@ -168,3 +203,34 @@ def render() -> None:
                     </div>""",
                     unsafe_allow_html=True,
                 )
+
+        # ── 오너클랜 상품 매핑 ─────────────────────────────────
+        st.divider()
+        st.markdown("#### 🛒 오너클랜 상품 찾기")
+        st.caption("키워드별 오너클랜 상품을 조회하여 판매할 상품을 선택하세요. (www.ownerclan.com)")
+
+        for i, item in enumerate(parsed_list):
+            kw = item["keyword"]
+            oc_key = f"oc_products_{i}"
+
+            label_col, btn_col = st.columns([0.65, 0.35])
+            with label_col:
+                st.markdown(f"**🏷️ {kw}**")
+            with btn_col:
+                if st.button(
+                    "🔍 오너클랜 검색",
+                    key=f"oc_btn_{i}",
+                    use_container_width=True,
+                ):
+                    from services.ownerclan_service import search_products
+                    with st.spinner(f"'{kw}' 오너클랜 상품 검색 중... (약 5~15초)"):
+                        products = search_products(kw, max_results=5)
+                    st.session_state[oc_key] = products
+                    st.session_state[f"oc_searched_{i}"] = True
+
+            oc_products: list[dict] = st.session_state.get(oc_key, [])
+            if oc_products:
+                _render_oc_products(oc_products, i)
+            elif st.session_state.get(f"oc_searched_{i}"):
+                st.warning(f"'{kw}'에 해당하는 오너클랜 상품을 찾지 못했습니다.")
+            st.markdown("")

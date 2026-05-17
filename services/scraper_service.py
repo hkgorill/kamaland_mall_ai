@@ -38,6 +38,8 @@ def scrape_product_info(url: str) -> dict:
             parsed = _parse_aliexpress(soup)
         elif "taobao.com" in url or "tmall.com" in url:
             parsed = _parse_taobao(soup)
+        elif "ownerclan.com" in url:
+            parsed = _parse_ownerclan(soup)
         else:
             parsed = _parse_generic(soup)
 
@@ -137,6 +139,14 @@ def _parse_taobao(soup: BeautifulSoup) -> dict:
 
     features = _extract_list_items(soup, max_items=8)
     return {"title": _clean(title), "description": _clean(desc), "features": features}
+
+
+def _parse_ownerclan(soup: BeautifulSoup) -> dict:
+    """오너클랜 상품 페이지 전용 파서."""
+    raw_title = _og_content(soup, "og:title") or _tag_text(soup, "title") or ""
+    title = re.sub(r'^오너클랜\s*[-–]\s*', '', raw_title).strip()
+    features = _extract_list_items(soup, max_items=6)
+    return {"title": _clean(title), "description": "", "features": features}
 
 
 def _parse_generic(soup: BeautifulSoup) -> dict:
