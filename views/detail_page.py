@@ -171,7 +171,7 @@ body {
   border:2px solid #2D2D4E !important;
   border-radius:0 0 16px 16px !important;
   box-shadow:0 0 50px rgba(124,58,237,0.25) !important;
-  overflow:hidden !important;
+  overflow-x:hidden !important;
   padding-top:0 !important;
 }
 </style>"""
@@ -184,7 +184,7 @@ body {
     )
     modified = html_content.replace("</head>", phone_css + "</head>", 1)
     modified = modified.replace("<body>", "<body>" + notch, 1)
-    components.html(modified, height=780, scrolling=True)
+    components.html(modified, height=900, scrolling=True)
 
 
 def _render_download_section(html_content: str) -> None:
