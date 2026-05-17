@@ -88,7 +88,6 @@ def _generate_one(
             contents=[prompt, img],
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE", "TEXT"],
-                thinking_config=types.ThinkingConfig(thinking_budget=0),
             ),
         )
         for part in resp.candidates[0].content.parts:
