@@ -1,0 +1,42 @@
+# ── 보안 · 환경설정 ──────────────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.secret
+
+# ── Python ───────────────────────────────────────
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+*.so
+
+# ── 생성 결과물 (대용량 이미지·HTML) ──────────────
+outputs/
+
+# ── Streamlit ────────────────────────────────────
+.streamlit/secrets.toml
+
+# ── Claude Code ──────────────────────────────────
+.claude/
+
+# ── OS · 에디터 ──────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── 테스트·커버리지 ───────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/

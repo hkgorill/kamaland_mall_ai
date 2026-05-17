@@ -1,0 +1,148 @@
+from __future__ import annotations
+
+import re
+import streamlit as st
+import utils.session as session
+from config import SOURCING_SYSTEM_PROMPT
+
+
+# ── 내부 파서 ─────────────────────────────────────────────────
+
+def _parse_keywords(text: str) -> list[dict]:
+    """
+    AI 응답 → 구조화된 키워드 목록.
+    기대 형식: - **키워드**: 판매포인트 | 타겟: 구매층
+    """
+    items: list[dict] = []
+    pattern = re.compile(
+        r"-\s+\*\*(.+?)\*\*\s*[:：]\s*(.+?)(?:\s*\|\s*타겟[:：]\s*(.+))?$",
+        re.MULTILINE,
+    )
+    for m in pattern.finditer(text):
+        items.append({
+            "keyword":      m.group(1).strip(),
+            "selling_point": m.group(2).strip(),
+            "target":       (m.group(3) or "일반 소비자").strip(),
+        })
+    # fallback: 파싱 실패 → 줄 단위 처리
+    if not items:
+        for line in text.splitlines():
+            line = line.strip()
+            if not line.startswith("-"):
+                continue
+            clean = re.sub(r"\*+", "", line[1:]).strip()
+            if clean:
+                items.append({"keyword": clean, "selling_point": "", "target": ""})
+    return items
+
+
+# ── 메인 렌더 ─────────────────────────────────────────────────
+
+def render() -> None:
+    st.markdown("## 🔍 오늘 뭐 팔지? (소싱)")
+    st.caption("트렌디한 위탁 판매 아이템 키워드를 AI가 추천합니다. 마음에 드는 키워드를 선택해 다음 단계로 연동하세요.")
+    st.divider()
+
+    left, right = st.columns([1, 1.8])
+
+    # ── 좌측: 설정 패널 ────────────────────────────────────────
+    with left:
+        st.markdown("### ⚙️ 설정")
+        count = st.number_input("추출할 키워드 수", min_value=1, max_value=20, value=5, step=1)
+
+        options = st.multiselect(
+            "추가 조건 (선택)",
+            ["SNS 바이럴 아이템", "계절성 상품", "리필·소모품", "선물용", "반려동물", "가성비"],
+            default=[],
+        )
+        run = st.button("🔄 키워드 추출하기", type="primary", use_container_width=True)
+
+        # 이미 선택된 키워드 요약 표시
+        selected = st.session_state.get("_selected_keywords", [])
+        if selected:
+            st.divider()
+            st.markdown("**선택된 키워드**")
+            for kw in selected:
+                st.markdown(f"- {kw['keyword']}")
+
+            if st.button("✅ 선택 완료 → 후킹 문구로", type="primary", use_container_width=True):
+                # 세션에 선택 결과 저장
+                session.set("sourcing_keywords", selected)
+                session.set("sourcing_done", True)
+                session.set(
+                    "product_info",
+                    "\n".join(
+                        f"- **{k['keyword']}**: {k['selling_point']}" for k in selected
+                    ),
+                )
+                st.session_state["_nav"] = "상세페이지 후킹 문구"
+                st.rerun()
+
+    # ── 우측: 결과 패널 ────────────────────────────────────────
+    with right:
+        st.markdown("### 📋 추천 키워드")
+
+        if run:
+            from services.gemini_service import generate_text
+            condition_str = ("추가 조건: " + ", ".join(options)) if options else ""
+            prompt = (
+                f"현재 날짜 기준으로 국내 온라인 위탁 판매에 최적화된 소형/생필품 키워드 {count}개를 추천해주세요.\n"
+                f"{condition_str}\n\n"
+                f"각 키워드는 반드시 아래 형식으로 작성하세요 (형식 이외 텍스트 없이):\n"
+                f"- **[키워드]**: [판매 포인트 한 줄] | 타겟: [주요 구매층]\n\n"
+                f"계절성, SNS 바이럴 가능성, 경쟁 강도를 고려해주세요."
+            )
+            with st.spinner("AI가 트렌드를 분석 중입니다..."):
+                try:
+                    result = generate_text(prompt, system_prompt=SOURCING_SYSTEM_PROMPT, temperature=0.8)
+                    parsed = _parse_keywords(result)
+                    st.session_state["_sourcing_parsed"] = parsed
+                    st.session_state["_selected_keywords"] = []
+                    st.toast(f"키워드 {len(parsed)}개 추출 완료!", icon="🔍")
+                except Exception as e:
+                    st.error(f"키워드 추출 실패: {e}")
+
+        parsed_list: list[dict] = st.session_state.get("_sourcing_parsed", [])
+
+        if not parsed_list:
+            st.info("왼쪽에서 키워드 수를 설정하고 '추출하기' 버튼을 눌러주세요.")
+            return
+
+        # 키워드 카드 렌더링
+        if "_selected_keywords" not in st.session_state:
+            st.session_state["_selected_keywords"] = []
+
+        st.caption(f"총 {len(parsed_list)}개 키워드 · 체크박스로 선택 후 왼쪽 '선택 완료' 버튼을 눌러주세요")
+
+        for i, item in enumerate(parsed_list):
+            kw   = item["keyword"]
+            sp   = item["selling_point"]
+            tgt  = item["target"]
+            checked = any(k["keyword"] == kw for k in st.session_state["_selected_keywords"])
+
+            col_chk, col_card = st.columns([0.08, 0.92])
+            with col_chk:
+                selected_now = st.checkbox("", value=checked, key=f"kw_chk_{i}", label_visibility="collapsed")
+
+            with col_card:
+                border_color = "#7C3AED" if selected_now else "#2D2D4E"
+                st.markdown(
+                    f"""<div style="background:#1A1A2E;border:1.5px solid {border_color};
+                    border-radius:10px;padding:0.9rem 1.1rem;margin-bottom:2px;">
+                    <div style="font-weight:700;font-size:1rem;color:#E8E8F0;margin-bottom:4px;">
+                      🏷️ {kw}</div>
+                    <div style="font-size:0.83rem;color:#A78BFA;margin-bottom:2px;">
+                      💡 {sp}</div>
+                    <div style="font-size:0.78rem;color:#64748B;">
+                      👥 타겟: {tgt}</div>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+
+            # 선택 상태 동기화
+            sel = st.session_state["_selected_keywords"]
+            exists = any(k["keyword"] == kw for k in sel)
+            if selected_now and not exists:
+                sel.append(item)
+            elif not selected_now and exists:
+                st.session_state["_selected_keywords"] = [k for k in sel if k["keyword"] != kw]
